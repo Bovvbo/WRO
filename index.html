@@ -43,6 +43,7 @@
         </div>
         <button class="copy" data-copy="#out"><i class="fa-regular fa-copy" id="copy"></i> <span> Copy </span></button>
         <div id="buttons">
+            <button id="drehen">Umdrehen</button>
             <button id="k1">Kleiner Motor 1 drehen</button>
             <button id="k2">Kleiner Motor 2 drehen</button>
             <button id="k3">Kleiner Motor 3 drehen</button>
@@ -55,6 +56,7 @@
         let canvas = document.getElementById("canvas");
         let ctx = canvas.getContext("2d");
         let out = document.getElementById("out");
+        let drehen = document.getElementById("drehen");
         let k1 = document.getElementById("k1");
         let k2 = document.getElementById("k2");
         let k3 = document.getElementById("k3");
@@ -66,6 +68,26 @@
         let PunkteCounter = 0;
 
         let points = [];
+
+        function drawDirectionArrow(x, y, angle) {
+
+            let size = 15;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle + Math.PI / 2);
+
+            ctx.beginPath();
+            ctx.moveTo(0, -size);
+            ctx.lineTo(size / 2, size);
+            ctx.lineTo(-size / 2, size);
+            ctx.closePath();
+
+            ctx.fillStyle = "white";
+            ctx.fill();
+
+            ctx.restore();
+        }
 
         function distanceMM(p1, p2) {
             let dx = (p2.x - p1.x) * 2362;
@@ -119,10 +141,25 @@
 
             ctx.fillStyle = "red";
 
-            for (let p of points) {
+            for (let i = 0; i < points.length; i++) {
+
+                let px = points[i].x * canvas.width;
+                let py = points[i].y * canvas.height;
+
                 ctx.beginPath();
-                ctx.arc(p.x * canvas.width, p.y * canvas.height, 6, 0, Math.PI * 2);
+                ctx.rect(px - 20, py - 20, 40, 40);
+                ctx.fillStyle = "red";
                 ctx.fill();
+
+                if (i < points.length - 1) {
+
+                    let nx = points[i + 1].x * canvas.width;
+                    let ny = points[i + 1].y * canvas.height;
+
+                    let angle = Math.atan2(ny - py, nx - px);
+
+                    drawDirectionArrow(px, py, angle);
+                }
             }
         }
 
@@ -151,9 +188,14 @@
 
             if (points.length >= 2) {
                 let lastDistance = distanceMM(points[points.length - 2], points[points.length - 1]);
-                output += "drb_m(" + lastDistance.toFixed(1) + ", 500)\n";
+                if (lastDistance != 0) {
+                    output += "drb_m(" + lastDistance.toFixed(1) + ", 500)\n";
+                }
             }
             out.innerHTML += output.replace(/\n/g, "<br>");
+        });
+        drehen.addEventListener("click", function () {
+            out.innerHTML += "drb_t(180, 500)\n";
         });
 
         k1.addEventListener("click", function () {
