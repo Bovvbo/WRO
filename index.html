@@ -22,7 +22,7 @@
         }
 
         #out {
-            width: 200px;
+            width: 300px;
         }
 
         #buttons {
@@ -49,6 +49,7 @@
             <button id="k3">Kleiner Motor 3 drehen</button>
             <button id="k4">Kleiner Motor 4 drehen</button>
             <button id="kommentar">Kommentar hinzufügen</button>
+            <button id="undo">Rückgängig</button>
         </div>
     </div>
 
@@ -62,6 +63,7 @@
         let k3 = document.getElementById("k3");
         let k4 = document.getElementById("k4");
         let kommentar = document.getElementById("kommentar");
+        let undo = document.getElementById("undo");
 
         let img = new Image();
         img.src = "WRO2026-RM-Senior-Spielfeldmatte.png";
@@ -69,6 +71,24 @@
 
         let points = [];
         let turns = [];
+
+        function undoLast() {
+
+            if (points.length === 0) return;
+
+            let lastIndex = points.length - 1;
+
+            points.pop();
+
+            let turnIndex = turns.indexOf(lastIndex);
+            if (turnIndex !== -1) {
+                turns.splice(turnIndex, 1);
+            }
+
+            rebuildOutput();
+
+            draw();
+        }
 
         function drawDirectionArrow(x, y, angle) {
 
@@ -194,8 +214,7 @@
             points.push({ x: x, y: y });
 
             draw();
-
-            let output = "";
+            rebuildOutput();
 
             if (points.length >= 3) {
                 let A = points[points.length - 3];
@@ -222,7 +241,7 @@
 
             turns.push(points.length - 1);
 
-            out.innerHTML += "drb_t(180, 500)<br>";
+            rebuildOutput();
             draw();
         });
 
@@ -244,6 +263,7 @@
                 out.innerHTML += "# " + comment + "\n";
             }
         });
+        undo.addEventListener("click", undoLast);
 
         document.querySelector(".copy").addEventListener("click", function () {
             let copyText = document.querySelector(this.getAttribute("data-copy")).innerText;
@@ -253,6 +273,38 @@
                 alert("Failed to copy: ", err);
             });
         });
+        function rebuildOutput() {
+
+            let text = "#WRO\n";
+
+            for (let i = 1; i < points.length; i++) {
+
+                if (turns.includes(i - 1)) {
+                    text += "drb_t(180, 500)\n";
+                }
+
+                if (i >= 2) {
+
+                    let A = points[i - 2];
+                    let B = points[i - 1];
+                    let C = points[i];
+
+                    let angle = angleDirection(A, B, C);
+
+                    if (Math.abs(angle) > 5) {
+                        text += "drb_t(" + angle.toFixed(2) + ", 500)\n";
+                    }
+                }
+
+                let dist = distanceMM(points[i - 1], points[i]);
+
+                if (dist !== 0) {
+                    text += "drb_m(" + dist.toFixed(1) + ", 500)\n";
+                }
+            }
+
+            out.innerHTML = text.replace(/\n/g, "<br>");
+        }
 
 
         img.onload = draw;
