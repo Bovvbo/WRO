@@ -68,6 +68,7 @@
         let PunkteCounter = 0;
 
         let points = [];
+        let turns = [];
 
         function drawDirectionArrow(x, y, angle) {
 
@@ -75,12 +76,12 @@
 
             ctx.save();
             ctx.translate(x, y);
-            ctx.rotate(angle + Math.PI / 2);
+            ctx.rotate(angle);
 
             ctx.beginPath();
-            ctx.moveTo(0, -size);
-            ctx.lineTo(size / 2, size);
-            ctx.lineTo(-size / 2, size);
+            ctx.moveTo(size, 0);
+            ctx.lineTo(-size * 0.6, size * 0.6);
+            ctx.lineTo(-size * 0.6, -size * 0.6);
             ctx.closePath();
 
             ctx.fillStyle = "white";
@@ -146,18 +147,39 @@
                 let px = points[i].x * canvas.width;
                 let py = points[i].y * canvas.height;
 
+                let isTurn = turns.includes(i);
+
                 ctx.beginPath();
                 ctx.rect(px - 20, py - 20, 40, 40);
-                ctx.fillStyle = "red";
+
+                if (i === points.length - 1) {
+                    ctx.fillStyle = "lime";
+                } else if (isTurn) {
+                    ctx.fillStyle = "orange";
+                } else {
+                    ctx.fillStyle = "red";
+                }
+
                 ctx.fill();
 
-                if (i < points.length - 1) {
+                let angle;
 
+                if (isTurn && i > 0) {
+
+                    let bx = points[i - 1].x * canvas.width;
+                    let by = points[i - 1].y * canvas.height;
+
+                    angle = Math.atan2(by - py, bx - px);
+
+                } else if (i < points.length - 1) {
                     let nx = points[i + 1].x * canvas.width;
                     let ny = points[i + 1].y * canvas.height;
 
-                    let angle = Math.atan2(ny - py, nx - px);
+                    angle = Math.atan2(ny - py, nx - px);
 
+                }
+
+                if (angle !== undefined) {
                     drawDirectionArrow(px, py, angle);
                 }
             }
@@ -195,7 +217,13 @@
             out.innerHTML += output.replace(/\n/g, "<br>");
         });
         drehen.addEventListener("click", function () {
-            out.innerHTML += "drb_t(180, 500)\n";
+
+            if (points.length === 0) return;
+
+            turns.push(points.length - 1);
+
+            out.innerHTML += "drb_t(180, 500)<br>";
+            draw();
         });
 
         k1.addEventListener("click", function () {
