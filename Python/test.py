@@ -6,20 +6,32 @@ from pybricks.tools import multitask, run_task
 from pybricks.hubs import PrimeHub
 
 
-
 hub = PrimeHub()
 
 hub.system.set_stop_button({Button.BLUETOOTH})
 
 
+session_watch = None  # StopWatch für die gesamte Session
+session_start_time = None  # Startzeit in Millisekunden
+
+class StopRun(Exception):
+    def __init__(self, message: str = "", stop_program: bool = False):
+        super().__init__(message)
+        self.message = message
+        self.stop_program = stop_program
+
 lmg = Motor(Port.A, positive_direction=Direction.COUNTERCLOCKWISE)
 rmg = Motor(Port.E, positive_direction=Direction.CLOCKWISE)
 #lmk = Motor(Port.F)
 #rmk = Motor(Port.B)
-col = ColorSensor(Port.D)
 radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
+
+
+#Firebase startinfos
+print("restart")
+print("battery",hub.battery.voltage() / 1000)
 '''
 def lmkmove(distance, speed):
     lmk.reset_angle(0)
@@ -50,19 +62,33 @@ def rmkmove(distance, speed):
 
 def drb_m(distance,speed,acceleration=900):
     drb.settings(speed,acceleration,90, 500)
-    drb.straight(distance*-1,Stop.BRAKE,True)
+    drb.straight(distance,Stop.HOLD,True)
+    while not drb.done():
+        if Button.RIGHT in hub.buttons.pressed():
+            raise StopRun("ENDE")
+        if Button.CENTER in hub.buttons.pressed():
+            wait(1)
+            raise StopRun("ENDE GELÄNDE!")
 
 def drb_t(angle,speed,acceleration=500):
     drb.settings(400,400,speed,acceleration)
-    drb.turn(angle,Stop.COAST,True)
+    drb.turn(angle,Stop.HOLD,True)
+    
 
 def drb_k(radius, angle, speed, acceleration=500):
+
     drb.settings(straight_speed=speed, straight_acceleration=acceleration, turn_rate=100, turn_acceleration=acceleration)
     drb.curve(radius, angle, wait=False)
-    while not drb.done():
-        wait(10)
     
-'''
+    while not drb.done():
+        if Button.BLUETOOTH in hub.buttons.pressed():
+            raise StopRun("ENDE")
+        if Button.CENTER in hub.buttons.pressed():
+            wait(1)
+            raise StopRun("ENDE GELÄNDE!")
+        
+        wait(10)
+
 def drb_m_rmk(distance, speed, rmk_angle, rmk_speed):
     drb.settings(speed, 900, 90, 500)
     drb.straight(distance, Stop.HOLD, False)
@@ -83,74 +109,6 @@ def drb_m_rmk(distance, speed, rmk_angle, rmk_speed):
     
     rmk.brake()
 
-    '''
 
-def lf(dist, start_speed, end_speed):
-
-    Kp = 2.4
-    target = 52.5
-
-    speed = start_speed
-
-    lmg.reset_angle(0)
-
-    # -------- Ramp Up --------
-    while speed < end_speed:
-
-        speed += 20
-
-        error = target - col.reflection()
-        correction = Kp * error
-
-        left = -(speed + correction)
-        right = -(speed - correction)
-
-        lmg.run(left)
-        rmg.run(right)
-
-        wait(30)
-
-    # -------- Strecke fahren --------
-    start_angle = lmg.angle()
-
-    while abs(lmg.angle() - start_angle) < dist:
-
-        error = target - col.reflection()
-        correction = Kp * error
-
-        left = -(speed + correction)
-        right = -(speed - correction)
-
-        lmg.run(left)
-        rmg.run(right)
-
-        wait(30)
-
-    # -------- Ramp Down --------
-    while speed > start_speed:
-
-        speed -= 20
-
-        error = target - col.reflection()
-        correction = Kp * error
-
-        left = -(speed + correction)
-        right = -(speed - correction)
-
-        lmg.run(left)
-        rmg.run(right)
-
-        wait(30)
-
-    lmg.stop()
-    rmg.stop()
-
-
-#Programmstart
-
-hub.imu.reset_heading(0)
-drb.reset()
-lf(500, 100, 400)
-
-wait(500)
-
+#test
+drb_t(90, 300)
