@@ -50,7 +50,7 @@ def rmkmove(distance, speed):
 
 def drb_m(distance,speed,acceleration=900):
     drb.settings(speed,acceleration,90, 500)
-    drb.straight(distance*-1,Stop.BRAKE,True)
+    drb.straight(distance*-1,Stop.COAST,True)
 
 def drb_t(angle,speed,acceleration=500):
     drb.settings(400,400,speed,acceleration)
