@@ -9,14 +9,14 @@ from pybricks.hubs import PrimeHub
 
 hub = PrimeHub()
 
-hub.system.set_stop_button({Button.BLUETOOTH})
 
 
-lmg = Motor(Port.A, positive_direction=Direction.COUNTERCLOCKWISE)
-rmg = Motor(Port.E, positive_direction=Direction.CLOCKWISE)
-#lmk = Motor(Port.F)
-#rmk = Motor(Port.B)
-col = ColorSensor(Port.D)
+
+lmg = Motor(Port.F, positive_direction=Direction.COUNTERCLOCKWISE)
+rmg = Motor(Port.A, positive_direction=Direction.CLOCKWISE)
+#lmk = Motor(Port.D)
+#rmk = Motor(Port.E)
+col = ColorSensor(Port.B)
 radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
@@ -48,15 +48,15 @@ def rmkmove(distance, speed):
     rmk.brake()
     '''
 
-def drb_m(distance,speed,acceleration=900):
+def m(distance,speed,acceleration=600):
     drb.settings(speed,acceleration,90, 500)
     drb.straight(distance*-1,Stop.COAST,True)
 
-def drb_t(angle,speed,acceleration=500):
+def t(angle,speed,acceleration=500):
     drb.settings(400,400,speed,acceleration)
     drb.turn(angle,Stop.COAST,True)
 
-def drb_k(radius, angle, speed, acceleration=500):
+def k(radius, angle, speed, acceleration=500):
     drb.settings(straight_speed=speed, straight_acceleration=acceleration, turn_rate=100, turn_acceleration=acceleration)
     drb.curve(radius, angle, wait=False)
     while not drb.done():
@@ -85,7 +85,7 @@ def drb_m_rmk(distance, speed, rmk_angle, rmk_speed):
 
     '''
 
-def lf(dist, start_speed, end_speed):
+def lf_s(dist, start_speed, end_speed):
 
     Kp = 2.4
     target = 52.5
@@ -145,12 +145,92 @@ def lf(dist, start_speed, end_speed):
     lmg.stop()
     rmg.stop()
 
+def lf(dist, speed):
+    # Kalibrierte Werte (unverändert)
+    BLACK = 14
+    WHITE = 92
+    threshold = (BLACK + WHITE) / 2.0   # = 53.0
+
+    DRIVE_SPEED = 180   # mm/s
+
+    # ---------- OPTIMIERTE PID‑PARAMETER ----------
+    Kp = 0.4          # Deutlich kleiner, um Überreaktion zu vermeiden
+    Ki = 0.005          # Nur ganz leichtes Nachregeln
+    Kd = 0.15        # Starke Dämpfung gegen Ruckeln
+    
+    # Begrenzung des Lenkeinschlags
+    MAX_TURN_RATE = 90  # Grad/s – verhindert extremes Einlenken
+
+    deviation = 0.0
+    last_deviation = 0.0
+    acc_deviation = 0.0
+    dt = 0.03           # 30 ms pro Zyklus (≈ 33 Hz)
+
+    print("Kp =", Kp, "Ki =", Ki, "Kd =", Kd)
+
+    while True:
+        # Abweichung berechnen (negativ = zu dunkel / auf Schwarz)
+        deviation = col.reflection() - threshold
+
+        # --- PID‑Berechnung ---
+        diff = deviation - last_deviation
+        acc_deviation += deviation * dt
+
+        P_control = Kp * deviation
+        I_control = Ki * acc_deviation
+        D_control = Kd * diff / dt
+
+        # Integral begrenzen (Anti‑Windup)
+        I_control = max(-30, min(30, I_control))
+
+        turn_rate = P_control + I_control + D_control
+
+        # --- Lenkrate hart deckeln ---
+        turn_rate = max(-MAX_TURN_RATE, min(MAX_TURN_RATE, turn_rate))
+
+        # --- Debug‑Ausgabe (optional) ---
+        # print(f"Dev: {deviation:+.1f} | Turn: {turn_rate:+6.1f}")
+
+        # --- Motoren ansteuern ---
+        drb.drive(-DRIVE_SPEED, turn_rate)
+
+        last_deviation = deviation
+        wait(dt * 1000)   # dt in Millisekunden
 
 #Programmstart
 
 hub.imu.reset_heading(0)
 drb.reset()
-lf(500, 100, 400)
+
+m(500,500)
+
+
+#wait(10000)
+
+'''
+m(100,500)
+# vorne aufsammeln 
+m(60,500)
+# vorne aufsammeln 
+m(96,500)
+# vorne aufsammeln
+m(60,500)
+# vorne aufsammeln
+t(90,400)
+m(200,500)
+t(-90,400)
+m(90,500)
+t(90,400)
+lf(350,400)
+m(350,500)
+#vorne ablassen
+m(-60,500)
+#vorne ablassen
+m(-60,500)
+#vorne ablassen
+m(-60,500)
+#vorne ablassen
+'''
 
 wait(500)
 
