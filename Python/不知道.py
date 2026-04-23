@@ -2,8 +2,9 @@ from pybricks.tools import wait, StopWatch, hub_menu
 from pybricks.pupdevices import Motor, ColorSensor, UltrasonicSensor, ForceSensor
 from pybricks.parameters import Button, Color, Direction, Port, Side, Stop, Axis
 from pybricks.robotics import DriveBase
-from pybricks.tools import multitask, run_task
+from pybricks.tools import multitask, run_task, StopWatch
 from pybricks.hubs import PrimeHub
+
 
 
 
@@ -13,41 +14,41 @@ hub = PrimeHub()
 
 
 lmg = Motor(Port.F, positive_direction=Direction.COUNTERCLOCKWISE)
-rmg = Motor(Port.A, positive_direction=Direction.CLOCKWISE)
-#lmk = Motor(Port.D)
-#rmk = Motor(Port.E)
-col = ColorSensor(Port.B)
+rmg = Motor(Port.B, positive_direction=Direction.CLOCKWISE)
+hrk = Motor(Port.D) #Die Klappe hinten
+#vrk = Motor(Port.A) # Vorne Hoch runter
+#zdm = Motor(Port.C)
+col = ColorSensor(Port.E)
 radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
-'''
-def lmkmove(distance, speed):
-    lmk.reset_angle(0)
-    while abs(lmk.angle()) < distance:
-        if Button.BLUETOOTH in hub.buttons.pressed():
-            lmk.brake()
-            raise StopRun("ENDE")
-        if Button.CENTER in hub.buttons.pressed():
-            lmk.brake()
-            wait(1)
-            raise StopRun("ENDE GELÄNDE!")
-        lmk.run(speed)
-    lmk.brake()
 
-def rmkmove(distance, speed):
-    rmk.reset_angle(0)
-    while abs(rmk.angle()) < distance:
-        if Button.BLUETOOTH in hub.buttons.pressed():
-            rmk.brake()
-            raise StopRun("ENDE")
-        if Button.CENTER in hub.buttons.pressed():
-            rmk.brake()
-            wait(1)
-            raise StopRun("ENDE GELÄNDE!")
-        rmk.run(speed)
-    rmk.brake()
-    '''
+def klapp(distance, speed):
+    hrk.reset_angle(0)
+    timer = StopWatch()
+    last_angle = hrk.angle()
+    while abs(hrk.angle()) < distance:
+        current_angle = hrk.angle()
+        if abs(current_angle - last_angle) > 0.5:
+            last_angle = current_angle
+            timer.reset()       
+        if timer.time() > 500:
+            hrk.brake()
+            return            
+        hrk.run(speed)
+    hrk.brake()
 
+def hrv(distance, speed):
+    vrk.reset_angle(0)
+    while abs(vrk.angle()) < distance:
+        vrk.run(speed)
+    vrk.brake()
+
+def gdd(distance, speed):
+    zdm.reset_angle(0)
+    while abs(zdm.angle()) < distance:
+        zdm.run(speed)
+    zdm.brake()
 def m(distance,speed,acceleration=600):
     drb.settings(speed,acceleration,90, 500)
     drb.straight(distance*-1,Stop.COAST,True)
@@ -58,7 +59,7 @@ def t(angle,speed,acceleration=500):
 
 def k(radius, angle, speed, acceleration=500):
     drb.settings(straight_speed=speed, straight_acceleration=acceleration, turn_rate=100, turn_acceleration=acceleration)
-    drb.curve(radius, angle, wait=False)
+    drb.curve(radius, angle, wait=True)
     while not drb.done():
         wait(10)
     
@@ -188,21 +189,39 @@ def lf(dist, speed):
         # --- Lenkrate hart deckeln ---
         turn_rate = max(-MAX_TURN_RATE, min(MAX_TURN_RATE, turn_rate))
 
-        # --- Debug‑Ausgabe (optional) ---
-        # print(f"Dev: {deviation:+.1f} | Turn: {turn_rate:+6.1f}")
-
         # --- Motoren ansteuern ---
         drb.drive(-DRIVE_SPEED, turn_rate)
 
         last_deviation = deviation
         wait(dt * 1000)   # dt in Millisekunden
 
+
+def klappe():
+    global isKlappeOben
+    isKlappeOben = True
+    if isKlappeOben == True:
+        klapp(90, -300)
+        isKlappeOben=False
+    if isKlappeOben == False:
+        klapp(90, 300)
+        isKlappeOben=True
+
+def sammeln():
+    hrv(1,-300)
+    gdd(60,300)
+    hrv(10,-300)
+    gdd(60,-300)
+    hrv(60,300)
+
 #Programmstart
 
 hub.imu.reset_heading(0)
 drb.reset()
+klappe()
 
-m(500,500)
+    
+
+
 
 
 #wait(10000)
@@ -232,5 +251,5 @@ m(-60,500)
 #vorne ablassen
 '''
 
-wait(500)
+#wait(500)
 

@@ -1,5 +1,5 @@
-from Hyperlib_v1_6 import*
-import Hyperlib_v1_6 as lib
+from Python.Hyperlib_v1_6 import*
+import Python.Hyperlib_v1_6 as lib
 
 async def my_mission():
     """Your main mission programming goes here"""
