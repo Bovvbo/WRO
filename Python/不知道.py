@@ -13,11 +13,11 @@ hub = PrimeHub()
 
 
 
-lmg = Motor(Port.F, positive_direction=Direction.COUNTERCLOCKWISE)
+lmg = Motor(Port.C, positive_direction=Direction.COUNTERCLOCKWISE)
 rmg = Motor(Port.B, positive_direction=Direction.CLOCKWISE)
 hrk = Motor(Port.D) #Die Klappe hinten
-#vrk = Motor(Port.A) # Vorne Hoch runter
-#zdm = Motor(Port.C)
+vrk = Motor(Port.A) # Vorne Hoch runter
+zdm = Motor(Port.F)
 col = ColorSensor(Port.E)
 radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
@@ -198,16 +198,15 @@ def lf(dist, speed):
 
 def klappe():
     global isKlappeOben
-    isKlappeOben = True
     if isKlappeOben == True:
         klapp(90, -300)
         isKlappeOben=False
-    if isKlappeOben == False:
+    else:
         klapp(90, 300)
         isKlappeOben=True
 
 def sammeln():
-    hrv(1,-300)
+    hrv(50,-300)
     gdd(60,300)
     hrv(10,-300)
     gdd(60,-300)
@@ -217,7 +216,9 @@ def sammeln():
 
 hub.imu.reset_heading(0)
 drb.reset()
-klappe()
+isKlappeOben = True
+m(100,300)
+#klappe()
 
     
 
