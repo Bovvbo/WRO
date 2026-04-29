@@ -8,6 +8,7 @@ from pybricks.hubs import PrimeHub
 
 
 
+
 hub = PrimeHub()
 
 
@@ -46,7 +47,16 @@ def hrv(distance, speed):
 
 def gdd(distance, speed):
     zdm.reset_angle(0)
+    timer= StopWatch()
+    last_angle = zdm.angle()
     while abs(zdm.angle()) < distance:
+        current_angle = zdm.angle()
+        if abs(current_angle - last_angle) > 0.5:
+            last_angle = current_angle
+            timer.reset()       
+        if timer.time() > 500:
+            zdm.brake()
+            return            
         zdm.run(speed)
     zdm.brake()
 def m(distance,speed,acceleration=600):
@@ -147,33 +157,30 @@ def lf_s(dist, start_speed, end_speed):
     rmg.stop()
 
 def lf(dist, speed):
-    # Kalibrierte Werte (unverändert)
     BLACK = 14
     WHITE = 92
-    threshold = (BLACK + WHITE) / 2.0   # = 53.0
+    threshold = (BLACK + WHITE) / 2.0
 
-    DRIVE_SPEED = 180   # mm/s
+    Kp = 0.4
+    Ki = 0.005
+    Kd = 0.15
+    MAX_TURN_RATE = 90
 
-    # ---------- OPTIMIERTE PID‑PARAMETER ----------
-    Kp = 0.4          # Deutlich kleiner, um Überreaktion zu vermeiden
-    Ki = 0.005          # Nur ganz leichtes Nachregeln
-    Kd = 0.15        # Starke Dämpfung gegen Ruckeln
-    
-    # Begrenzung des Lenkeinschlags
-    MAX_TURN_RATE = 90  # Grad/s – verhindert extremes Einlenken
+    dt = 0.03                     # 30 ms pro Zyklus
+    drive_time = dist / speed     # benötigte Fahrzeit in Sekunden
+    required_loops = int(drive_time / dt)   # Anzahl Schleifendurchläufe
+
+    print(f"Fahre {dist} mm mit {speed} mm/s -> {drive_time:.2f} s = {required_loops} Loops")
 
     deviation = 0.0
     last_deviation = 0.0
     acc_deviation = 0.0
-    dt = 0.03           # 30 ms pro Zyklus (≈ 33 Hz)
 
-    print("Kp =", Kp, "Ki =", Ki, "Kd =", Kd)
+    loop_count = 0
 
-    while True:
-        # Abweichung berechnen (negativ = zu dunkel / auf Schwarz)
+    while loop_count < required_loops:
         deviation = col.reflection() - threshold
 
-        # --- PID‑Berechnung ---
         diff = deviation - last_deviation
         acc_deviation += deviation * dt
 
@@ -181,20 +188,18 @@ def lf(dist, speed):
         I_control = Ki * acc_deviation
         D_control = Kd * diff / dt
 
-        # Integral begrenzen (Anti‑Windup)
         I_control = max(-30, min(30, I_control))
-
         turn_rate = P_control + I_control + D_control
-
-        # --- Lenkrate hart deckeln ---
         turn_rate = max(-MAX_TURN_RATE, min(MAX_TURN_RATE, turn_rate))
 
-        # --- Motoren ansteuern ---
-        drb.drive(-DRIVE_SPEED, turn_rate)
+        drb.drive(-speed, turn_rate)   # Jetzt mit variablem speed!
 
         last_deviation = deviation
-        wait(dt * 1000)   # dt in Millisekunden
+        wait(dt * 1000)
 
+        loop_count += 1
+
+    drb.stop()   # nach der gewünschten Anzahl Schleifen anhalten
 
 def klappe():
     global isKlappeOben
@@ -206,51 +211,65 @@ def klappe():
         isKlappeOben=True
 
 def sammeln():
-    hrv(50,-300)
-    gdd(60,300)
-    hrv(10,-300)
-    gdd(60,-300)
-    hrv(60,300)
+    hrv(250,-700)
+    gdd(100,300)
+    hrv(250,-700)
+    hrv(150,700)
+    hrv(150,-700)
+    gdd(100,-300)
+    hrv(500,700)
+
+def abladen():
+    hrv(350,-700)
+    gdd(120,300)
+    wakeln()
+    hrv(150,700)
+    gdd(120,-300)
+    hrv(200,700)
+
+def wakeln():
+    m(20,300)
+    m(-20,300)
+    
 
 #Programmstart
 
 hub.imu.reset_heading(0)
 drb.reset()
 isKlappeOben = True
-m(100,300)
-#klappe()
-
-    
 
 
 
+m(127,500)
 
-#wait(10000)
 
-'''
-m(100,500)
-# vorne aufsammeln 
+sammeln()
 m(60,500)
-# vorne aufsammeln 
-m(96,500)
-# vorne aufsammeln
+sammeln()
+m(95,500)
+sammeln()
 m(60,500)
-# vorne aufsammeln
+sammeln()
+
+m(-60,500)
 t(90,400)
-m(200,500)
+m(300,500)
 t(-90,400)
-m(90,500)
+m(220,500)
 t(90,400)
-lf(350,400)
-m(350,500)
-#vorne ablassen
-m(-60,500)
-#vorne ablassen
-m(-60,500)
-#vorne ablassen
-m(-60,500)
-#vorne ablassen
-'''
-
-#wait(500)
+lf(400,180)
+#k(300,3,500)
+#k(-300,3,500)
+t(7,400)
+m(10,500)
+t(-7,400)
+m(300,500)
+#m(680,500)
+abladen()
+m(-50,500)
+abladen()
+m(-50,500)
+abladen()
+m(-50,500)
+abladen()
 
