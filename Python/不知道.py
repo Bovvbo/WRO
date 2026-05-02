@@ -24,6 +24,18 @@ radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
 
+BLACK          = 14
+WHITE          = 92
+THRESHOLD      = (BLACK + WHITE) / 2.0
+ 
+KP             = 0.4
+KI             = 0.005
+KD             = 0.15
+MAX_TURN_RATE  = 90
+DT             = 0.03        # Zielzykluszeit in Sekunden
+D_SMOOTH       = 0.7         # Low-Pass-Koeffizient für D-Term (0 = kein Filter)
+I_CLAMP        = 30          # Maximaler I-Anteil
+
 def klapp(distance, speed):
     hrk.reset_angle(0)
     timer = StopWatch()
@@ -72,29 +84,6 @@ def k(radius, angle, speed, acceleration=500):
     drb.curve(radius, angle, wait=True)
     while not drb.done():
         wait(10)
-    
-'''
-def drb_m_rmk(distance, speed, rmk_angle, rmk_speed):
-    drb.settings(speed, 900, 90, 500)
-    drb.straight(distance, Stop.HOLD, False)
-    
-    rmk.reset_angle(0)
-    
-    while not drb.done():
-        if abs(rmk.angle()) < rmk_angle:
-            rmk.run(rmk_speed)
-        
-        if Button.RIGHT in hub.buttons.pressed():
-            rmk.brake()
-            raise StopRun("ENDE")
-        if Button.CENTER in hub.buttons.pressed():
-            rmk.brake()
-            wait(1)
-            raise StopRun("ENDE GELÄNDE!")
-    
-    rmk.brake()
-
-    '''
 
 def lf_s(dist, start_speed, end_speed):
 
@@ -156,50 +145,73 @@ def lf_s(dist, start_speed, end_speed):
     lmg.stop()
     rmg.stop()
 
-def lf(dist, speed):
-    BLACK = 14
-    WHITE = 92
-    threshold = (BLACK + WHITE) / 2.0
-
-    Kp = 0.4
-    Ki = 0.005
-    Kd = 0.15
-    MAX_TURN_RATE = 90
-
-    dt = 0.03                     # 30 ms pro Zyklus
-    drive_time = dist / speed     # benötigte Fahrzeit in Sekunden
-    required_loops = int(drive_time / dt)   # Anzahl Schleifendurchläufe
-
-    print(f"Fahre {dist} mm mit {speed} mm/s -> {drive_time:.2f} s = {required_loops} Loops")
-
-    deviation = 0.0
+def lf(dist: float, speed: float) -> None:
+    """
+    Fährt 'dist' mm rückwärts entlang einer Linie mit 'speed' mm/s.
+ 
+    Args:
+        dist:  Fahrstrecke in mm (muss > 0 sein)
+        speed: Fahrgeschwindigkeit in mm/s (muss > 0 sein)
+    """
+ 
+    # ── Eingabevalidierung ───────────────────────────────────────────────────
+    if dist <= 0 or speed <= 0:
+        print("Fehler: dist und speed müssen größer als 0 sein.")
+        return
+ 
+    # ── Laufvariablen ────────────────────────────────────────────────────────
+    drive_time     = dist / speed
+    required_loops = int(drive_time / DT)
+    print(f"Fahre {dist} mm mit {speed} mm/s → {drive_time:.2f} s = {required_loops} Loops")
+ 
+    deviation      = 0.0
     last_deviation = 0.0
-    acc_deviation = 0.0
-
-    loop_count = 0
-
+    acc_deviation  = 0.0
+    smooth_diff    = 0.0      # geglättete Ableitung für D-Term
+    loop_count     = 0
+ 
+    timer = StopWatch()       # für adaptives Timing
+ 
+    # ── Regelschleife ────────────────────────────────────────────────────────
     while loop_count < required_loops:
-        deviation = col.reflection() - threshold
-
-        diff = deviation - last_deviation
-        acc_deviation += deviation * dt
-
-        P_control = Kp * deviation
-        I_control = Ki * acc_deviation
-        D_control = Kd * diff / dt
-
-        I_control = max(-30, min(30, I_control))
+        timer.reset()
+ 
+        # Abweichung vom Schwellwert
+        deviation      = col.reflection() - THRESHOLD
+        diff           = deviation - last_deviation
+ 
+        # D-Term: Low-Pass-Filter gegen Sensorrauschen
+        smooth_diff    = D_SMOOTH * smooth_diff + (1.0 - D_SMOOTH) * diff
+ 
+        # Integrator aufaddieren
+        acc_deviation += deviation * DT
+ 
+        # PID-Anteile berechnen
+        P_control = KP * deviation
+        I_control = KI * acc_deviation
+        D_control = KD * smooth_diff / DT
+ 
+        # Anti-Windup: I-Anteil begrenzen
+        I_control = max(-I_CLAMP, min(I_CLAMP, I_control))
+ 
+        # Stellgröße zusammensetzen und begrenzen
         turn_rate = P_control + I_control + D_control
         turn_rate = max(-MAX_TURN_RATE, min(MAX_TURN_RATE, turn_rate))
-
-        drb.drive(-speed, turn_rate)   # Jetzt mit variablem speed!
-
+ 
+        drb.drive(-speed, turn_rate)
+ 
         last_deviation = deviation
-        wait(dt * 1000)
-
-        loop_count += 1
-
-    drb.stop()   # nach der gewünschten Anzahl Schleifen anhalten
+        loop_count    += 1
+ 
+        # Adaptives Timing: verbleibende Zeit im Zyklus abwarten
+        elapsed_ms = timer.time()
+        remaining  = int(DT * 1000) - elapsed_ms
+        if remaining > 0:
+            wait(remaining)
+ 
+    # ── Sauber stoppen ───────────────────────────────────────────────────────
+    drb.stop()
+    print("Strecke abgefahren.")
 
 def klappe():
     global isKlappeOben
@@ -255,9 +267,11 @@ m(-60,500)
 t(90,400)
 m(300,500)
 t(-90,400)
-m(220,500)
+m(225,500)
 t(90,400)
+
 lf(400,180)
+
 #k(300,3,500)
 #k(-300,3,500)
 t(7,400)
@@ -272,4 +286,6 @@ m(-50,500)
 abladen()
 m(-50,500)
 abladen()
+
+
 
