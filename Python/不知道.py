@@ -1,28 +1,24 @@
-from pybricks.tools import wait, StopWatch, hub_menu
-from pybricks.pupdevices import Motor, ColorSensor, UltrasonicSensor, ForceSensor
-from pybricks.parameters import Button, Color, Direction, Port, Side, Stop, Axis
+from pybricks.tools import wait, StopWatch
+from pybricks.pupdevices import Motor, ColorSensor
+from pybricks.parameters import Direction, Port, Stop
 from pybricks.robotics import DriveBase
-from pybricks.tools import multitask, run_task, StopWatch
 from pybricks.hubs import PrimeHub
-
-
-
-
 
 hub = PrimeHub()
 
-
-
-
 lmg = Motor(Port.C, positive_direction=Direction.COUNTERCLOCKWISE)
 rmg = Motor(Port.B, positive_direction=Direction.CLOCKWISE)
-hrk = Motor(Port.D) #Die Klappe hinten
-vrk = Motor(Port.A) # Vorne Hoch runter
+hrk = Motor(Port.D)
+vrk = Motor(Port.A)
 zdm = Motor(Port.F)
 col = ColorSensor(Port.E)
-radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  HILFSFUNKTIONEN
+# ═══════════════════════════════════════════════════════════════════════
 
 def klapp(distance, speed):
     hrk.reset_angle(0)
@@ -32,10 +28,10 @@ def klapp(distance, speed):
         current_angle = hrk.angle()
         if abs(current_angle - last_angle) > 0.5:
             last_angle = current_angle
-            timer.reset()       
+            timer.reset()
         if timer.time() > 500:
             hrk.brake()
-            return            
+            return
         hrk.run(speed)
     hrk.brake()
 
@@ -47,252 +43,241 @@ def hrv(distance, speed):
 
 def gdd(distance, speed):
     zdm.reset_angle(0)
-    timer= StopWatch()
+    timer = StopWatch()
     last_angle = zdm.angle()
     while abs(zdm.angle()) < distance:
         current_angle = zdm.angle()
         if abs(current_angle - last_angle) > 0.5:
             last_angle = current_angle
-            timer.reset()       
+            timer.reset()
         if timer.time() > 500:
             zdm.brake()
-            return            
+            return
         zdm.run(speed)
     zdm.brake()
-def m(distance,speed,acceleration=600):
-    drb.settings(speed,acceleration,90, 500)
-    drb.straight(distance*-1,Stop.COAST,True)
 
-def t(angle,speed,acceleration=500):
-    drb.settings(400,400,speed,acceleration)
-    drb.turn(angle,Stop.COAST,True)
+def m(distance, speed, acceleration=600):
+    drb.settings(speed, acceleration, 90, 500)
+    drb.straight(distance * -1, Stop.COAST, True)
+
+def t(angle, speed, acceleration=500):
+    drb.settings(speed, acceleration, speed, acceleration)
+    drb.turn(angle, Stop.COAST, True)
 
 def k(radius, angle, speed, acceleration=500):
     drb.settings(straight_speed=speed, straight_acceleration=acceleration, turn_rate=100, turn_acceleration=acceleration)
     drb.curve(radius, angle, wait=True)
-    while not drb.done():
-        wait(10)
+
+def klappe():
+    global isKlappeOben
+    if isKlappeOben:
+        klapp(90, -300)
+        isKlappeOben = False
+    else:
+        klapp(90, 300)
+        isKlappeOben = True
+
+def sammeln():
+    hrv(250, -700)
+    gdd(100, 300)
+    hrv(250, -700)
+    hrv(150, 700)
+    hrv(150, -700)
+    gdd(100, -300)
+    hrv(500, 700)
+
+def abladen():
+    hrv(350, -700)
+    gdd(120, 300)
+    wakeln()
+    hrv(150, 700)
+    gdd(120, -300)
+    hrv(200, 700)
+
+def wakeln():
+    m(20, 300)
+    m(-20, 300)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  LINIENFOLGER
+# ═══════════════════════════════════════════════════════════════════════
 
 class PIDConfig:
     """Alle Regelparameter zentral und dokumentiert."""
-    KP            = 0.45     # Proportionalanteil
-    KI            = 0.004    # Integralanteil
-    KD            = 0.18     # Differentialanteil
-    D_SMOOTH      = 0.65     # D-Term Low-Pass (0 = roh, 1 = eingefroren)
-    I_CLAMP       = 25.0     # Anti-Windup: max. I-Anteil in °/s
-    MAX_TURN      = 95       # Maximale Lenkrate in °/s
-    DT            = 0.025    # Zielzykluszeit in Sekunden (25 ms)
-    RAMP_LOOPS    = 15       # Loops für Geschwindigkeitsrampe beim Start
+    KP           = 0.35
+    KI           = 0.003
+    KD           = 0.18
+    D_SMOOTH     = 0.65
+    I_CLAMP      = 25.0
+    MAX_TURN     = 120
+    DT           = 0.010
+    RAMP_LOOPS   = 15
+    LINE_LOSS_MS = 1000
+    ALIGN_SPEED  = 80
+    ALIGN_LOOPS  = 30
+    ALIGN_THRESH = 3.0
 
-
-# ════════════════════════════════════════════════════════════════════════════
-#  KALIBRIERUNG
-# ════════════════════════════════════════════════════════════════════════════
-
-def calibrate(samples: int = 20) -> tuple:
-    """
-    Misst Black- und White-Werte durch Überfahren der Linie.
-    Roboter muss sich dabei langsam über die Linie bewegen.
-
-    Returns:
-        (black, white) als gemessene Extremwerte
-    """
-    readings = []
-    for _ in range(samples):
-        readings.append(col.reflection())
-        wait(50)
-
-    black = min(readings)
-    white = max(readings)
-    print(f"Kalibrierung: Schwarz={black}, Weiß={white}, Threshold={(black+white)/2:.1f}")
-    return black, white
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  PID-REGLER (als eigene Klasse – wiederverwendbar)
-# ════════════════════════════════════════════════════════════════════════════
 
 class PIDController:
-    """
-    Generischer PID-Regler mit:
-    - D-Term Low-Pass-Filterung
-    - Anti-Windup per Clamping
-    - Reset-Funktion für Mehrfachnutzung
-    """
-
     def __init__(self, cfg: PIDConfig):
-        self.cfg          = cfg
-        self._integral    = 0.0
-        self._prev_error  = 0.0
+        self.cfg           = cfg
+        self._integral     = 0.0
+        self._prev_error   = 0.0
         self._smooth_deriv = 0.0
 
     def reset(self) -> None:
-        """Regler zurücksetzen (z.B. vor jedem neuen Fahrauftrag)."""
         self._integral     = 0.0
         self._prev_error   = 0.0
         self._smooth_deriv = 0.0
 
     def update(self, error: float, dt: float) -> float:
-        """
-        Berechnet eine Steuergröße aus dem aktuellen Fehler.
-
-        Args:
-            error: Aktueller Regelabstand (Ist - Soll)
-            dt:    Tatsächlich vergangene Zeit seit letztem Update in Sekunden
-
-        Returns:
-            Stellgröße (Lenkrate in °/s)
-        """
         cfg = self.cfg
-
-        # P-Anteil
         p = cfg.KP * error
 
-        # I-Anteil mit Anti-Windup
         self._integral += error * dt
         i = cfg.KI * self._integral
         if i > cfg.I_CLAMP:
             i = cfg.I_CLAMP
-            self._integral = cfg.I_CLAMP / cfg.KI   # Back-Calculation
+            self._integral = cfg.I_CLAMP / cfg.KI
         elif i < -cfg.I_CLAMP:
             i = -cfg.I_CLAMP
             self._integral = -cfg.I_CLAMP / cfg.KI
 
-        # D-Anteil mit Low-Pass gegen Rauschen
         raw_deriv = (error - self._prev_error) / dt if dt > 0 else 0.0
         self._smooth_deriv = (cfg.D_SMOOTH * self._smooth_deriv
                               + (1.0 - cfg.D_SMOOTH) * raw_deriv)
         d = cfg.KD * self._smooth_deriv
-
         self._prev_error = error
 
-        # Stellgröße begrenzen
         output = p + i + d
         return max(-cfg.MAX_TURN, min(cfg.MAX_TURN, output))
 
-
-# ════════════════════════════════════════════════════════════════════════════
-#  HAUPTFUNKTION
-# ════════════════════════════════════════════════════════════════════════════
 
 def lf(
     dist:  float,
     speed: float,
     black: int = 14,
     white: int = 92,
+    side:  str = "left",
     cfg:   PIDConfig = None
 ) -> bool:
     """
     Fährt 'dist' mm rückwärts entlang einer Linie.
-
-    Args:
-        dist:  Fahrstrecke in mm
-        speed: Zielgeschwindigkeit in mm/s
-        black: Sensorwert auf schwarzer Linie (aus Kalibrierung)
-        white: Sensorwert auf weißem Untergrund (aus Kalibrierung)
-        cfg:   PIDConfig-Objekt (Standard wird verwendet wenn None)
-
-    Returns:
-        True bei Erfolg, False bei ungültigen Parametern
+    Gyro wird während lf automatisch deaktiviert und danach wieder aktiviert.
     """
 
-    # ── Validierung ──────────────────────────────────────────────────────────
     if dist <= 0 or speed <= 0:
         print(f"Fehler: dist={dist}, speed={speed} – beide müssen > 0 sein.")
         return False
     if black >= white:
         print(f"Fehler: black={black} muss kleiner als white={white} sein.")
         return False
+    if side not in ("left", "right"):
+        print(f"Fehler: side='{side}' – muss 'left' oder 'right' sein.")
+        return False
 
     if cfg is None:
         cfg = PIDConfig()
 
-    threshold      = (black + white) / 2.0
-    drive_time     = dist / speed
-    required_loops = int(drive_time / cfg.DT)
+    # Gyro aus für lf
+    drb.use_gyro(False)
 
-    print(f"Start: {dist} mm | {speed} mm/s | {drive_time:.2f} s | {required_loops} Loops")
-    print(f"Threshold: {threshold:.1f} | KP={cfg.KP} KI={cfg.KI} KD={cfg.KD}")
+    threshold  = (black + white) / 2.0
+    side_sign  = 1 if side == "left" else -1
+    max_ramp   = max(1, int(dist / speed / cfg.DT) - 1)
+    ramp_loops = min(cfg.RAMP_LOOPS, max_ramp)
 
-    # ── Regler initialisieren ────────────────────────────────────────────────
-    pid    = PIDController(cfg)
-    timer  = StopWatch()
-    prev_t = timer.time()
+    print(f"Start: {dist} mm | {speed} mm/s | Threshold: {threshold:.1f} | Seite: {side}")
 
-    # ── Regelschleife ────────────────────────────────────────────────────────
-    for loop_count in range(required_loops):
+    pid = PIDController(cfg)
 
-        # Echtes dt messen (robuster als festes DT)
-        now    = timer.time()
-        real_dt = (now - prev_t) / 1000.0   # ms → s
-        if real_dt <= 0:
-            real_dt = cfg.DT                 # Fallback beim ersten Loop
-        prev_t = now
+    # ── Ausricht-Phase ───────────────────────────────────────────────
+    print("Ausrichten...")
+    align_timer = StopWatch()
+    prev_t = align_timer.time()
 
-        # Abweichung + Stellgröße
-        error     = col.reflection() - threshold
-        turn_rate = pid.update(error, real_dt)
+    for _ in range(cfg.ALIGN_LOOPS):
+        now     = align_timer.time()
+        real_dt = max((now - prev_t) / 1000.0, cfg.DT)
+        prev_t  = now
 
-        # Geschwindigkeitsrampe beim Anfahren (sanfterer Start)
-        if loop_count < cfg.RAMP_LOOPS:
-            ramp_factor = (loop_count + 1) / cfg.RAMP_LOOPS
-            current_speed = speed * ramp_factor
-        else:
-            current_speed = speed
+        reflection = col.reflection()
+        error      = (reflection - threshold) * side_sign
+        turn_rate  = pid.update(error, real_dt)
 
-        drb.drive(-current_speed, turn_rate)
+        drb.drive(-cfg.ALIGN_SPEED, turn_rate)
 
-        # Adaptives Timing
-        elapsed   = timer.time() - prev_t
+        if abs(error) < cfg.ALIGN_THRESH:
+            break
+
+        elapsed   = align_timer.time() - now
         remaining = int(cfg.DT * 1000) - elapsed
         if remaining > 1:
             wait(remaining)
 
-    # ── Stoppen ──────────────────────────────────────────────────────────────
+    print("Ausgerichtet – Hauptfahrt startet.")
+
+    # ── Reset für Hauptfahrt ─────────────────────────────────────────
+    pid.reset()
+    drb.reset()
+    timer  = StopWatch()
+    prev_t = timer.time()
+    line_loss_timer  = StopWatch()
+    line_loss_active = False
+
+    # ── Hauptfahrt ───────────────────────────────────────────────────
+    while abs(drb.distance()) < dist:
+
+        now     = timer.time()
+        real_dt = (now - prev_t) / 1000.0
+        if real_dt <= 0:
+            real_dt = cfg.DT
+        prev_t = now
+
+        reflection = col.reflection()
+        error      = (reflection - threshold) * side_sign
+        turn_rate  = pid.update(error, real_dt)
+
+        if reflection < black - 5 or reflection > white + 5:
+            if not line_loss_active:
+                line_loss_active = True
+                line_loss_timer.reset()
+            elif line_loss_timer.time() > cfg.LINE_LOSS_MS:
+                print("Linienverlust! Abbruch.")
+                drb.stop()
+                drb.use_gyro(True)
+                return False
+        else:
+            line_loss_active = False
+
+        loop_count    = int(abs(drb.distance()) / speed / cfg.DT)
+        ramp_factor   = min(1.0, (loop_count + 1) / ramp_loops)
+        current_speed = speed * ramp_factor
+
+        drb.drive(-current_speed, turn_rate)
+
+        elapsed   = timer.time() - now
+        remaining = int(cfg.DT * 1000) - elapsed
+        if remaining > 1:
+            wait(remaining)
+
     drb.stop()
+    # Gyro wieder an für alle anderen Funktionen
+    drb.use_gyro(True)
     print(f"Ziel erreicht nach {timer.time() / 1000:.2f} s.")
     return True
 
 
-def klappe():
-    global isKlappeOben
-    if isKlappeOben == True:
-        klapp(90, -300)
-        isKlappeOben=False
-    else:
-        klapp(90, 300)
-        isKlappeOben=True
-
-def sammeln():
-    hrv(250,-700)
-    gdd(100,300)
-    hrv(250,-700)
-    hrv(150,700)
-    hrv(150,-700)
-    gdd(100,-300)
-    hrv(500,700)
-
-def abladen():
-    hrv(350,-700)
-    gdd(120,300)
-    wakeln()
-    hrv(150,700)
-    gdd(120,-300)
-    hrv(200,700)
-
-def wakeln():
-    m(20,300)
-    m(-20,300)
-    
-
-#Programmstart
+# ═══════════════════════════════════════════════════════════════════════
+#  PROGRAMMSTART
+# ═══════════════════════════════════════════════════════════════════════
 
 hub.imu.reset_heading(0)
 drb.reset()
 isKlappeOben = True
 
-
-lf(400,300)
+lf(400, 300, side="left")
 
 '''
 m(127,500)
