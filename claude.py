@@ -24,54 +24,10 @@ radius = 31.2
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
 
-def klapp(distance, speed):
-    hrk.reset_angle(0)
-    timer = StopWatch()
-    last_angle = hrk.angle()
-    while abs(hrk.angle()) < distance:
-        current_angle = hrk.angle()
-        if abs(current_angle - last_angle) > 0.5:
-            last_angle = current_angle
-            timer.reset()       
-        if timer.time() > 500:
-            hrk.brake()
-            return            
-        hrk.run(speed)
-    hrk.brake()
 
-def hrv(distance, speed):
-    vrk.reset_angle(0)
-    while abs(vrk.angle()) < distance:
-        vrk.run(speed)
-    vrk.brake()
-
-def gdd(distance, speed):
-    zdm.reset_angle(0)
-    timer= StopWatch()
-    last_angle = zdm.angle()
-    while abs(zdm.angle()) < distance:
-        current_angle = zdm.angle()
-        if abs(current_angle - last_angle) > 0.5:
-            last_angle = current_angle
-            timer.reset()       
-        if timer.time() > 500:
-            zdm.brake()
-            return            
-        zdm.run(speed)
-    zdm.brake()
-def m(distance,speed,acceleration=600):
-    drb.settings(speed,acceleration,90, 500)
-    drb.straight(distance*-1,Stop.COAST,True)
-
-def t(angle,speed,acceleration=500):
-    drb.settings(400,400,speed,acceleration)
-    drb.turn(angle,Stop.COAST,True)
-
-def k(radius, angle, speed, acceleration=500):
-    drb.settings(straight_speed=speed, straight_acceleration=acceleration, turn_rate=100, turn_acceleration=acceleration)
-    drb.curve(radius, angle, wait=True)
-    while not drb.done():
-        wait(10)
+# ════════════════════════════════════════════════════════════════════════════
+#  KONFIGURATION
+# ════════════════════════════════════════════════════════════════════════════
 
 class PIDConfig:
     """Alle Regelparameter zentral und dokumentiert."""
@@ -254,81 +210,18 @@ def lf(
     return True
 
 
-def klappe():
-    global isKlappeOben
-    if isKlappeOben == True:
-        klapp(90, -300)
-        isKlappeOben=False
-    else:
-        klapp(90, 300)
-        isKlappeOben=True
+# ════════════════════════════════════════════════════════════════════════════
+#  BEISPIEL-AUFRUF
+# ════════════════════════════════════════════════════════════════════════════
 
-def sammeln():
-    hrv(250,-700)
-    gdd(100,300)
-    hrv(250,-700)
-    hrv(150,700)
-    hrv(150,-700)
-    gdd(100,-300)
-    hrv(500,700)
+# Standard-Aufruf:
+lf(500, 300)
 
-def abladen():
-    hrv(350,-700)
-    gdd(120,300)
-    wakeln()
-    hrv(150,700)
-    gdd(120,-300)
-    hrv(200,700)
+# Mit eigener Kalibrierung:
+# b, w = calibrate()
+# lf(500, 150, black=b, white=w)
 
-def wakeln():
-    m(20,300)
-    m(-20,300)
-    
-
-#Programmstart
-
-hub.imu.reset_heading(0)
-drb.reset()
-isKlappeOben = True
-
-
-lf(400,300)
-
-'''
-m(127,500)
-
-
-sammeln()
-m(60,500)
-sammeln()
-m(95,500)
-sammeln()
-m(60,500)
-sammeln()
-
-m(-60,500)
-t(90,400)
-m(300,500)
-t(-90,400)
-m(225,500)
-t(90,400)
-
-lf(400,180)
-
-#k(300,3,500)
-#k(-300,3,500)
-t(7,400)
-m(10,500)
-t(-7,400)
-m(300,500)
-#m(680,500)
-abladen()
-m(-50,500)
-abladen()
-m(-50,500)
-abladen()
-m(-50,500)
-abladen()
-
-
-'''
+# Mit angepassten PID-Werten:
+# my_cfg = PIDConfig()
+# my_cfg.KP = 0.5
+# lf(500, 150, cfg=my_cfg)
