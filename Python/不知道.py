@@ -6,11 +6,11 @@ from pybricks.hubs import PrimeHub
 
 hub = PrimeHub()
 
-lmg = Motor(Port.C, positive_direction=Direction.COUNTERCLOCKWISE)
+lmg = Motor(Port.D, positive_direction=Direction.COUNTERCLOCKWISE)
 rmg = Motor(Port.B, positive_direction=Direction.CLOCKWISE)
-hrk = Motor(Port.D)
+hrk = Motor(Port.F)
 vrk = Motor(Port.A)
-zdm = Motor(Port.F)
+zdm = Motor(Port.C)
 col = ColorSensor(Port.E)
 drb = DriveBase(lmg, rmg, 62.4, 200)
 drb.use_gyro(True)
@@ -70,29 +70,31 @@ def k(radius, angle, speed, acceleration=500):
 
 def klappe():
     global isKlappeOben
-    if isKlappeOben:
-        klapp(90, -300)
+    if isKlappeOben==True:
+        klapp(120, 500)
         isKlappeOben = False
     else:
-        klapp(90, 300)
+        klapp(120, -500)
         isKlappeOben = True
 
 def sammeln():
-    hrv(250, -700)
-    gdd(100, 300)
-    hrv(250, -700)
-    hrv(150, 700)
-    hrv(150, -700)
-    gdd(100, -300)
-    hrv(500, 700)
+    hrv(250, 500)
+    #wait(500)
+    #hrv(100, 300)
+    gdd(150, 300)
+    hrv(200, 500)
+    #hrv(200, -700)
+    #hrv(200, 700)
+    gdd(200, -300)
+    hrv(450, -700)
 
 def abladen():
-    hrv(350, -700)
+    hrv(350, 700)
     gdd(120, 300)
     wakeln()
-    hrv(150, 700)
+    hrv(150, -700)
     gdd(120, -300)
-    hrv(200, 700)
+    hrv(200, -700)
 
 def wakeln():
     m(20, 300)
@@ -277,20 +279,65 @@ hub.imu.reset_heading(0)
 drb.reset()
 isKlappeOben = True
 
-lf(400, 300, side="left")
+#lf(400, 300, side="left")
+
+m(135,500)
+
+gdd(100,300)
+
+hrv(100,200)
+
+
+sammeln()
+m(62,500)
+sammeln()
+m(100,500)
+sammeln()
+m(62,500)
+sammeln()
+
+hrv(150,-700)
+
+m(-400,500)
+t(-90,400)
+m(200,500)
+m(-720,500)
+
+klappe()
+
+m(300,250)
+klappe()
+
+m(100,500)  # 1
+t(-45,400)
+m(-130,500)
+t(45,400)
+
+m(-400,500)
+
+t(45,400)
+m(-120,500)
+t(-45,400)
+m(-150,500)
+
+klappe()
+
+t(-90,400) # 2
+m(-100,500)
+t(90,400)
+m(-600,500)
+t(-100,400)
+m(-50,500)
+
+klappe()
+
+m(50,500)
+
+t(100,400)
+
+
 
 '''
-m(127,500)
-
-
-sammeln()
-m(60,500)
-sammeln()
-m(95,500)
-sammeln()
-m(60,500)
-sammeln()
-
 m(-60,500)
 t(90,400)
 m(300,500)
@@ -315,5 +362,5 @@ abladen()
 m(-50,500)
 abladen()
 
-
 '''
+
