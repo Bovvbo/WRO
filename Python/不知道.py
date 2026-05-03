@@ -12,7 +12,7 @@ hrk = Motor(Port.F)
 vrk = Motor(Port.A)
 zdm = Motor(Port.C)
 col = ColorSensor(Port.E)
-drb = DriveBase(lmg, rmg, 62.4, 200)
+drb = DriveBase(lmg, rmg, 62.4, 210)
 drb.use_gyro(True)
 
 
