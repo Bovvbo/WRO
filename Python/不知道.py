@@ -38,7 +38,7 @@ def klapp(distance, speed):
 def hrv(distance, speed):
     vrk.reset_angle(0)
     while abs(vrk.angle()) < distance:
-        vrk.run(speed)
+        vrk.run(-speed)
     vrk.brake()
 
 def gdd(distance, speed):
@@ -291,7 +291,7 @@ hrv(100,200)
 sammeln()
 m(62,500)
 sammeln()
-m(100,500)
+m(96,500)
 sammeln()
 m(62,500)
 sammeln()
@@ -310,12 +310,12 @@ lf(350,180)
 
 #k(300,3,500)
 #k(-300,3,500)
-t(18,400)
-m(50,500)
-t(-18,400)
+#t(20,400)
+#m(50,500)
+#t(-20,400)
 m(550,300)
 t(180,300)
-m(280,300)
+m(240,300)
 #m(680,500)
 abladen()
 m(-50,500)
@@ -324,3 +324,13 @@ m(-50,500)
 abladen()
 m(-50,500)
 abladen()
+
+m(-700,500)
+klappe()
+m(-200,500)
+m(500,500)
+
+t(180,400)
+m(200,500)
+
+klappe()
